@@ -4,20 +4,23 @@ from .query import Query
 import numpy as np
 import torch
 import torch.nn.functional as F
+import pdb
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 class ALGESv1(Query):
     def __init__(self, idxs_lb, model, dm):
         super(ALGESv1, self).__init__(idxs_lb, model, dm)
         self.n_class = model.n_class
 
-    def query(self, n):
+    def query(self, n, exp, r):
         self.model.train().cuda()
         mixed_loss = MixedLoss()
         
         unlb_embs = torch.zeros((len(self.unlb_dataloader), self.n_class))
         
         with torch.enable_grad():
-            for i, (x, y) in enumerate(self.unlb_dataloader):
+            for i, (x, y) in tqdm(enumerate(self.unlb_dataloader)):
                 x = x.cuda()
                 out, _, _ = self.model(x)
                 
@@ -34,8 +37,14 @@ class ALGESv1(Query):
                 gx = G.norm(dim=1, p=2).squeeze()
                 
                 unlb_embs[i] = gx
-                
-        _, indices = kmeans_plusplus(unlb_embs.cpu().detach().numpy(), n_clusters=n, random_state=0)
+        # pdb.set_trace()
+        # Plot init seeds along side sample data
+        centers_init, indices = kmeans_plusplus(unlb_embs.cpu().detach().numpy(), n_clusters=n, random_state=0)
+        x = unlb_embs.cpu().detach().numpy()
+        plt.scatter(x[:,0], x[:,1], x[:,2], x[:,3])
+        plt.scatter(centers_init[:, 0], centers_init[:, 1], c="b", s=50)
+        savename = "embeddings_exp-{exp_no}-round-{r}.png"
+        plt.savefig(savename.format(exp_no = exp, r=r))
         
         return np.take(np.where(self.idxs_lb==False), indices)
     
@@ -71,7 +80,7 @@ class ALGESv2(Query):
                 
                 for k in range(self.n_class):
                     U[i, k] = G[P_ == k].sum()
-                    
+
         _, indices = kmeans_plusplus(U.cpu().detach().numpy(), n_clusters=n, random_state=0)
         
         return np.take(np.where(self.idxs_lb==False), indices)

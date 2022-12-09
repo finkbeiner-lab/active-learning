@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from datamodules.cs8k_datamodule import *
 from datamodules.m2caiseg_datamodule import *
 from datamodules.bcv30_datamodule import *
+from datamodules.amyb_datamodule import *
 from model.unet import ResNetUNet
 from queries.query import *
 from queries.random import *
@@ -14,6 +15,7 @@ from queries.alges import *
 import copy
 import numpy as np
 from tqdm import tqdm
+import pdb
 
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
@@ -42,17 +44,25 @@ def main(hparams):
     if hparams.logger:
         logger = WandbLogger(project=hparams.project)
     
+    # Setup log directory
+    if not os.path.exists('logs/' + hparams.dataset):
+        os.makedirs('logs/' + hparams.dataset)
+  
     # Setup data for active learning
     n_class = ...
-    if hparams.dataset == 'cholecseg8k':
-        dm = CS8KDataModule(hparams)
-        n_class = 13
-    elif hparams.dataset == 'm2caiseg':
-        dm = M2CAISEGDataModule(hparams)
-        n_class = 19
-    elif hparams.dataset == 'bcv30':
-        dm = BCV30DataModule(hparams)
-        n_class = 13
+
+    if hparams.dataset == 'amybdataset':
+        dm = AmyBDataModule(hparams)
+        n_class = 4
+    # elif hparams.dataset == 'cholecseg8k':
+    #     dm = CS8KDataModule(hparams)
+    #     n_class = 13
+    # elif hparams.dataset == 'm2caiseg':
+    #     dm = M2CAISEGDataModule(hparams)
+    #     n_class = 19
+    # elif hparams.dataset == 'bcv30':
+    #     dm = BCV30DataModule(hparams)
+    #     n_class = 
     dm.prepare_data()
     dm.setup()
     
@@ -136,12 +146,12 @@ def main(hparams):
             # Get new samples to include in labeled pool
             if hparams.n_rounds > 1:
                 sampler = strat(lb_pool, new_model, dm)
-                lb_pool[sampler.query(hparams.n_query)] = True
+                lb_pool[sampler.query(hparams.n_query, exp, r)] = True
             
             # Clean up model and callbacks after each round of training 
             del new_model
             del trainer
-            del ckpt_callback
+            # del ckpt_callback
             
         del model
     # -_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_
@@ -166,21 +176,21 @@ if __name__ == "__main__":
                        help='name of the wandb project to log metrics to')
     
     # Data args
-    parser.add_argument("--dataset", default='cholecseg8k', type=str, choices=['cholecseg8k', 'm2caiseg', 'bcv30'],
+    parser.add_argument("--dataset", default='amybdataset', type=str, choices=['cholecseg8k', 'm2caiseg', 'bcv30', 'amybdataset'],
                        help='which dataset to use for active learning')
     
     # Learning args
-    parser.add_argument("--min_epochs", default=25, type=int,
+    parser.add_argument("--min_epochs", default=2, type=int,
                        help='minimum number of training epochs (applies to every round of AL)')
-    parser.add_argument("--max_epochs", default=50, type=int,
+    parser.add_argument("--max_epochs", default=5, type=int,
                        help='maximum number of training epochs (applies to every round of AL)')
     parser.add_argument("--lr", default=5e-5, type=float,
                        help='learning rate')
-    parser.add_argument("--batch_size", default=32, type=int,
+    parser.add_argument("--batch_size", default=2, type=int,
                        help='training batch size')
-    parser.add_argument("--val_size", default=1600, type=int,
+    parser.add_argument("--val_size", default=55, type=int,
                        help='size of validation set')
-    parser.add_argument("--test_size", default=1840, type=int,
+    parser.add_argument("--test_size", default=56, type=int,
                        help='size of validation set')
     parser.add_argument("--record", default=True, type=bool,
                        help='save validation/test mean dice scores every round of AL')
@@ -188,13 +198,13 @@ if __name__ == "__main__":
                        help='Evaluate model on test (1) or val (0)')
     
     # Active learning args
-    parser.add_argument("--n_rounds", default=50, type=int,
+    parser.add_argument("--n_rounds", default=5, type=int,
                        help='number of active learning rounds')
     parser.add_argument("--n_init", default=10, type=int,
                        help='number of initial labeled samples')
     parser.add_argument("--n_query", default=10, type=int,
                        help='number of samples to query for oracle')
-    parser.add_argument("-q", "--query", default=1, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8],
+    parser.add_argument("-q", "--query", default=7, type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8],
                        help='AL querying strategy: 0 = Naive, 1 = Random, \
                        2 = Max entropy, 3 = Margins sampling, 4 = Least confidence, \
                        5 = Coreset, 6 = DEAL, 7 = ALGESv1, 8 = ALGESv2')

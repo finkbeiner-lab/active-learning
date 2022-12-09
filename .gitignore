@@ -1,0 +1,7 @@
+
+
+datamodules/__pycache__/*
+model/__pycache__/*
+checkpoints/*
+queries/__pycache__/*
+queries/.ppynb_checkpoints/*

@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 
 att_map_size = {
+    4:  (56, 56),  # Amybdataset
     13: (56, 56),  # CholecSeg8k
     19: (56, 56),  # m2caiSeg
 }
