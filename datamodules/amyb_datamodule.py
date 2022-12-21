@@ -57,7 +57,7 @@ class AmyBDataModule(pl.LightningDataModule):
         # exc_idxs = np.full(len(self.X_tr), False, dtype=bool)
         # exc_idxs[inc_idxs] = True
         exc_idxs = ~inc_idxs
-        
+
         self.unlb = AmyBDataset(self.X_tr[exc_idxs], self.Y_tr[exc_idxs], self.train_trans)   
 
     def train_dataloader(self):

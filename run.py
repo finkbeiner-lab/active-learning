@@ -44,6 +44,12 @@ def main(hparams):
     if hparams.logger:
         logger = WandbLogger(project=hparams.project)
     
+    # Setup up human annotation 
+    human_annot_dir = "human_annotations"
+    if not os.path.exists(human_annot_dir):
+        os.makedirs(human_annot_dir)
+  
+    
     # Setup log directory
     if not os.path.exists('logs/' + hparams.dataset):
         os.makedirs('logs/' + hparams.dataset)
@@ -68,6 +74,8 @@ def main(hparams):
     
     # Get initial labeled sample pool
     init_lb_pool = np.full(len(dm.X_tr), False, dtype=bool)
+    all_samples_pool = np.full(len(dm.X_tr), False, dtype=bool)
+
     tmp = np.arange(len(dm.X_tr))
     np.random.shuffle(tmp)
     init_lb_pool[tmp[0:hparams.n_init]] = True
@@ -78,8 +86,8 @@ def main(hparams):
         num_metrics = 8
     else:
         num_metrics = n_class
-    val_class_dsc = np.zeros((hparams.n_rounds, hparams.n_exp, num_metrics))
-    test_class_dsc = np.zeros((hparams.n_rounds, hparams.n_exp, num_metrics))
+    val_class_dsc = np.zeros((hparams.n_rounds, hparams.n_exp, num_metrics + 1))
+    test_class_dsc = np.zeros((hparams.n_rounds, hparams.n_exp, num_metrics + 1))
     
     # Setup AL querying method
     query_types = [
@@ -134,6 +142,7 @@ def main(hparams):
                 T = trainer.test(new_model, dm.test_dataloader(), ckpt_path=None)[0]
                 for i in range(num_metrics):
                     test_class_dsc[r, exp, i] = T[f'tdsc-c{i}']
+                test_class_dsc[r, exp, 4] = T['test_dice']
                 np.save(f'logs/{hparams.dataset}/{hparams.seed}_{hparams.dataset}_te_ce_r{hparams.n_rounds}_i{hparams.n_init}_q{hparams.n_query}_s{hparams.query}', 
                         test_class_dsc)
             else:
@@ -145,8 +154,18 @@ def main(hparams):
 
             # Get new samples to include in labeled pool
             if hparams.n_rounds > 1:
+                # pdb.set_trace()
                 sampler = strat(lb_pool, new_model, dm)
-                lb_pool[sampler.query(hparams.n_query, exp, r)] = True
+                samples_tobe_annotated = sampler.query(hparams.n_query)
+                lb_pool[samples_tobe_annotated] = True
+                
+                #TODO Send this to a csv
+                # all_samples  = len(dm.X_tr) = False
+                all_samples_pool[samples_tobe_annotated] = True
+
+                #save to csv
+                pdb.set_trace()
+                dm.X_tr[all_samples_pool]
             
             # Clean up model and callbacks after each round of training 
             del new_model
@@ -182,7 +201,7 @@ if __name__ == "__main__":
     # Learning args
     parser.add_argument("--min_epochs", default=2, type=int,
                        help='minimum number of training epochs (applies to every round of AL)')
-    parser.add_argument("--max_epochs", default=5, type=int,
+    parser.add_argument("--max_epochs", default=10, type=int,
                        help='maximum number of training epochs (applies to every round of AL)')
     parser.add_argument("--lr", default=5e-5, type=float,
                        help='learning rate')
@@ -198,9 +217,9 @@ if __name__ == "__main__":
                        help='Evaluate model on test (1) or val (0)')
     
     # Active learning args
-    parser.add_argument("--n_rounds", default=5, type=int,
+    parser.add_argument("--n_rounds", default=2, type=int,
                        help='number of active learning rounds')
-    parser.add_argument("--n_init", default=10, type=int,
+    parser.add_argument("--n_init", default=5, type=int,
                        help='number of initial labeled samples')
     parser.add_argument("--n_query", default=10, type=int,
                        help='number of samples to query for oracle')

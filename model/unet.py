@@ -145,6 +145,7 @@ class ResNetUNet(pl.LightningModule):
     def test_epoch_end(self, outs):
         class_dsc = torch.vstack([out[2] for out in outs])
         self.log('test_dice', class_dsc.mean())
+        print(" Test Loss", class_dsc.mean())
         for i in range(class_dsc.shape[1]):
             self.log(f'tdsc-c{i}', class_dsc[:, i].mean())
 

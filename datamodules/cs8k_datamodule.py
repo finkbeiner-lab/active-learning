@@ -13,7 +13,7 @@ class CS8KDataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.root = '/pasteur/u/josaklil/ALSSO/CS8K'
+        self.root = '/media/vivek/Samsung_T5/vivek/CS8K'
         
         # Augmentations for train data
         self.train_trans = T.Compose([
